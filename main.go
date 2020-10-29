@@ -9,6 +9,12 @@ import (
 	"strings"
 )
 
+const (
+	colSep = ','
+	rowSep = '\n'
+	quote  = '"'
+)
+
 func QuotedCSVLineSplit(data []byte, atEOF bool) (advance int, token []byte, err error) {
 	if atEOF && len(data) == 0 {
 		return 0, nil, nil
@@ -27,33 +33,33 @@ func QuotedCSVLineSplit(data []byte, atEOF bool) (advance int, token []byte, err
 		switch state {
 		case Start:
 			switch b {
-			case '"':
+			case quote:
 				state = QuotedField
-			case ',':
+			case colSep:
 				state = Start
 			default:
 				state = UnquotedField
 			}
 		case UnquotedField:
 			switch b {
-			case '\n':
+			case rowSep:
 				return i + 1, data[0:i], nil
-			case ',':
+			case colSep:
 				state = Start
 			}
 		case QuotedField:
-			if b == '"' {
+			if b == quote {
 				state = Quote
 			}
 		case Quote:
 			switch b {
-			case '"':
+			case quote:
 				// Just an escaped quote.
 				state = QuotedField
-			case ',':
+			case colSep:
 				// That was the end of the quoted field.
 				state = Start
-			case '\n':
+			case rowSep:
 				return i + 1, data[0:i], nil
 			default:
 				// Invalid.
