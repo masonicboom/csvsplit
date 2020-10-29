@@ -82,7 +82,7 @@ func Split(in io.Reader, maxBytesPerFile int, genNextFile func() (io.Writer, err
 
 	for scanner.Scan() {
 		line := scanner.Text() + "\n"
-		numBytes := len(line) // TODO: confirm this counts bytes, not multi-byte runes.
+		numBytes := len(line)
 
 		lineStraddlesSplit := currFileBytes+numBytes > maxBytesPerFile
 		if lineStraddlesSplit {
