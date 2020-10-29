@@ -75,6 +75,9 @@ func QuotedCSVLineSplit(data []byte, atEOF bool) (advance int, token []byte, err
 	return 0, nil, nil
 }
 
+const initBufSizeBytes = 64 * 1024
+const maxBufSizeBytes = 10 * 1024 * 1024
+
 func Split(in io.Reader, maxBytesPerFile int, genNextFile func() (io.Writer, error)) error {
 	var w *bufio.Writer
 	currFileBytes := maxBytesPerFile // This forces a new file to be generated initially.
@@ -83,8 +86,8 @@ func Split(in io.Reader, maxBytesPerFile int, genNextFile func() (io.Writer, err
 
 	scanner.Split(QuotedCSVLineSplit)
 
-	buf := make([]byte, 0, 64*1024)
-	scanner.Buffer(buf, 10*1024*1024)
+	buf := make([]byte, 0, initBufSizeBytes)
+	scanner.Buffer(buf, maxBufSizeBytes)
 
 	for scanner.Scan() {
 		line := scanner.Text() + "\n"
