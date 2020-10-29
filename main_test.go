@@ -4,6 +4,7 @@ import "testing"
 import "strings"
 import "bytes"
 import "io"
+import "bufio"
 
 func SplitToBuffers(in io.Reader, maxBytesPerFile int) ([]*bytes.Buffer, error) {
 	files := []*bytes.Buffer{}
@@ -85,5 +86,48 @@ func TestSplit(t *testing.T) {
 			}
 		}
 	nextcase:
+	}
+}
+
+func TestQuotedCSVLineSplit(t *testing.T) {
+	cases := []struct {
+		input    string
+		expected []string
+	}{
+		{
+			"a,b\nc,d",
+			[]string{
+				"a,b",
+				"c,d",
+			},
+		},
+		{
+			"a,b\nc,\"d\ne\"",
+			[]string{
+				"a,b",
+				"c,\"d\ne\"",
+			},
+		},
+		{
+			"a,b,\"c\"\"\"",
+			[]string{
+				"a,b,\"c\"\"\"",
+			},
+		},
+	}
+
+	for _, tc := range cases {
+		scanner := bufio.NewScanner(strings.NewReader(tc.input))
+		scanner.Split(QuotedCSVLineSplit)
+
+		i := 0
+		for scanner.Scan() {
+			line := scanner.Text()
+			expc := tc.expected[i]
+			if line != expc {
+				t.Errorf("mismatching lines: %s vs. %s expected", line, expc)
+			}
+			i += 1
+		}
 	}
 }

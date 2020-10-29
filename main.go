@@ -2,27 +2,77 @@ package main
 
 import "fmt"
 import "io"
-import "encoding/csv"
 import "strings"
 import "flag"
 import "bufio"
 import "os"
 
+func QuotedCSVLineSplit(data []byte, atEOF bool) (advance int, token []byte, err error) {
+	if atEOF && len(data) == 0 {
+		return 0, nil, nil
+	}
+
+	type State int
+	const (
+		Start State = iota
+		UnquotedField
+		QuotedField
+		Quote
+	)
+
+	state := Start
+	for i, b := range data {
+		switch state {
+		case Start:
+			if b == '"' {
+				state = QuotedField
+			} else if b == ',' {
+				state = Start
+			} else {
+				state = UnquotedField
+			}
+		case UnquotedField:
+			if b == '\n' {
+				return i + 1, data[0:i], nil
+			}
+			if b == ',' {
+				state = Start
+			}
+		case QuotedField:
+			if b == '"' {
+				state = Quote
+			}
+		case Quote:
+			if b == '"' {
+				// Just an escaped quote.
+				state = QuotedField
+			} else if b == ',' {
+				// That was the end of the quoted field.
+				state = Start
+			} else if b == '\n' {
+				return i + 1, data[0:i], nil
+			} else {
+				// Invalid.
+				return 0, nil, fmt.Errorf("invalid character following \" in quoted field: %s", string(b))
+			}
+		}
+	}
+
+	if atEOF {
+		return len(data), data, nil
+	}
+
+	return 0, nil, nil
+}
+
 func Split(in io.Reader, maxBytesPerFile int, genNextFile func() (io.Writer, error)) error {
 	var w *bufio.Writer
 	currFileBytes := maxBytesPerFile // This forces a new file to be generated initially.
 
-	r := csv.NewReader(in)
-	for {
-		rec, err := r.Read()
-		if err == io.EOF {
-			break
-		}
-		if err != nil {
-			return err
-		}
-
-		line := strings.Join(rec, ",") + "\n"
+	scanner := bufio.NewScanner(in)
+	scanner.Split(QuotedCSVLineSplit)
+	for scanner.Scan() {
+		line := scanner.Text() + "\n"
 		numBytes := len(line) // TODO: confirm this counts bytes, not multi-byte runes.
 
 		if currFileBytes+numBytes > maxBytesPerFile {
@@ -35,7 +85,7 @@ func Split(in io.Reader, maxBytesPerFile int, genNextFile func() (io.Writer, err
 			currFileBytes = 0
 		}
 
-		_, err = w.WriteString(line)
+		_, err := w.WriteString(line)
 		w.Flush()
 		if err != nil {
 			return fmt.Errorf("writing line: %v", err)
