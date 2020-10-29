@@ -1,12 +1,23 @@
+// csvsplit splits a CSV from STDIN, never splitting a row across files.
+
 package main
 
-import "fmt"
-import "io"
-import "strings"
-import "flag"
-import "bufio"
-import "os"
+import (
+	"bufio"
+	"flag"
+	"fmt"
+	"io"
+	"os"
+	"strings"
+)
 
+const (
+	colSep = ','
+	rowSep = '\n'
+	quote  = '"'
+)
+
+// QuotedCSVLineSplit is a SplitFunc for bufio.Scanner, which splits CSV rows.
 func QuotedCSVLineSplit(data []byte, atEOF bool) (advance int, token []byte, err error) {
 	if atEOF && len(data) == 0 {
 		return 0, nil, nil
@@ -24,34 +35,36 @@ func QuotedCSVLineSplit(data []byte, atEOF bool) (advance int, token []byte, err
 	for i, b := range data {
 		switch state {
 		case Start:
-			if b == '"' {
+			switch b {
+			case quote:
 				state = QuotedField
-			} else if b == ',' {
+			case colSep:
 				state = Start
-			} else {
+			default:
 				state = UnquotedField
 			}
 		case UnquotedField:
-			if b == '\n' {
+			switch b {
+			case rowSep:
 				return i + 1, data[0:i], nil
-			}
-			if b == ',' {
+			case colSep:
 				state = Start
 			}
 		case QuotedField:
-			if b == '"' {
+			if b == quote {
 				state = Quote
 			}
 		case Quote:
-			if b == '"' {
+			switch b {
+			case quote:
 				// Just an escaped quote.
 				state = QuotedField
-			} else if b == ',' {
+			case colSep:
 				// That was the end of the quoted field.
 				state = Start
-			} else if b == '\n' {
+			case rowSep:
 				return i + 1, data[0:i], nil
-			} else {
+			default:
 				// Invalid.
 				return 0, nil, fmt.Errorf("invalid character following \" in quoted field: %s", string(b))
 			}
@@ -65,6 +78,11 @@ func QuotedCSVLineSplit(data []byte, atEOF bool) (advance int, token []byte, err
 	return 0, nil, nil
 }
 
+const initBufSizeBytes = 64 * 1024
+const maxBufSizeBytes = 10 * 1024 * 1024
+
+// Split splits a stream of CSV data every maxBytesPerFile.
+// It requests a new output target from genNextFile for each split.
 func Split(in io.Reader, maxBytesPerFile int, genNextFile func() (io.Writer, error)) error {
 	var w *bufio.Writer
 	currFileBytes := maxBytesPerFile // This forces a new file to be generated initially.
@@ -73,12 +91,12 @@ func Split(in io.Reader, maxBytesPerFile int, genNextFile func() (io.Writer, err
 
 	scanner.Split(QuotedCSVLineSplit)
 
-	buf := make([]byte, 0, 64*1024)
-	scanner.Buffer(buf, 10*1024*1024)
+	buf := make([]byte, 0, initBufSizeBytes)
+	scanner.Buffer(buf, maxBufSizeBytes)
 
 	for scanner.Scan() {
 		line := scanner.Text() + "\n"
-		numBytes := len(line) // TODO: confirm this counts bytes, not multi-byte runes.
+		numBytes := len(line)
 
 		lineStraddlesSplit := currFileBytes+numBytes > maxBytesPerFile
 		if lineStraddlesSplit {
@@ -106,16 +124,6 @@ func Split(in io.Reader, maxBytesPerFile int, genNextFile func() (io.Writer, err
 	return nil
 }
 
-/* example split command I'm using
-split \
-  --line-bytes=200000000 \
-  --numeric-suffixes=0 \
-  --additional-suffix=.csv \
-  --suffix-length=4 \
-  --verbose \
-  "${STAGING_DIR}/${TABLE}.csv" "${STAGING_DIR}/${TABLE}_chunk"
-*/
-
 var numLineBytes = flag.Int("line-bytes", -1, "put at most SIZE bytes of records per output file")
 var suffixLength = flag.Int("suffix-length", 2, "generate suffixes of length N")
 var numericSuffixes = flag.Int("numeric-suffixes", 0, "use numeric suffixes starting at X")
@@ -123,6 +131,7 @@ var additionalSuffix = flag.String("additional-suffix", "", "append an additiona
 var prefix = flag.String("prefix", "", "prefix for file names")
 var verbose = flag.Bool("verbose", false, "generate verbose output")
 
+// NextFileName generates the file name for the split file in position fileNum.
 func NextFileName(fileNum int) (string, error) {
 	num := fmt.Sprintf("%d", fileNum)
 	numPaddingChars := *suffixLength - len(num)
@@ -186,4 +195,3 @@ func main() {
 		}
 	}
 }
-
