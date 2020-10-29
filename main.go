@@ -75,7 +75,8 @@ func Split(in io.Reader, maxBytesPerFile int, genNextFile func() (io.Writer, err
 		line := scanner.Text() + "\n"
 		numBytes := len(line) // TODO: confirm this counts bytes, not multi-byte runes.
 
-		if currFileBytes+numBytes > maxBytesPerFile {
+		lineStraddlesSplit := currFileBytes+numBytes > maxBytesPerFile
+		if lineStraddlesSplit {
 			// Time for a new file.
 			f, err := genNextFile()
 			if err != nil {
@@ -92,6 +93,10 @@ func Split(in io.Reader, maxBytesPerFile int, genNextFile func() (io.Writer, err
 		}
 		currFileBytes += numBytes
 	}
+	err := scanner.Err()
+	if err != nil {
+		return fmt.Errorf("scanning: %v", err)
+	}
 
 	return nil
 }
@@ -106,10 +111,12 @@ split \
   "${STAGING_DIR}/${TABLE}.csv" "${STAGING_DIR}/${TABLE}_chunk"
 */
 
-var numLineBytes = flag.Int("-line-bytes", -1, "put at most SIZE bytes of records per output file")
-var suffixLength = flag.Int("-suffix-length", 2, "generate suffixes of length N")
-var numericSuffixes = flag.Int("-numeric-suffixes", 0, "use numeric suffixes starting at X")
-var additionalSuffix = flag.String("-additional-suffix", "", "append an additional SUFFIX to file names")
+var numLineBytes = flag.Int("line-bytes", -1, "put at most SIZE bytes of records per output file")
+var suffixLength = flag.Int("suffix-length", 2, "generate suffixes of length N")
+var numericSuffixes = flag.Int("numeric-suffixes", 0, "use numeric suffixes starting at X")
+var additionalSuffix = flag.String("additional-suffix", "", "append an additional SUFFIX to file names")
+var prefix = flag.String("prefix", "", "prefix for file names")
+var verbose = flag.Bool("verbose", false, "generate verbose output")
 
 func NextFileName(fileNum int) (string, error) {
 	num := fmt.Sprintf("%d", fileNum)
@@ -117,16 +124,16 @@ func NextFileName(fileNum int) (string, error) {
 	if numPaddingChars < 0 {
 		return "", fmt.Errorf("file number longer than suffix size (%d): %s", *suffixLength, num)
 	}
-	paddedNum := num + strings.Repeat("0", numPaddingChars)
+	paddedNum := strings.Repeat("0", numPaddingChars) + num
 
-	return fmt.Sprintf("%s%s", paddedNum, *additionalSuffix), nil
+	return fmt.Sprintf("%s%s%s", *prefix, paddedNum, *additionalSuffix), nil
 }
 
 func main() {
 	flag.Parse()
 
 	if *numLineBytes < 1 {
-		fmt.Fprintf(os.Stderr, "must set --line-bytes to a positive integer (%d)\n", *numLineBytes)
+		fmt.Fprintf(os.Stderr, "must set -line-bytes to a positive integer (%d)\n", *numLineBytes)
 		os.Exit(1)
 	}
 
@@ -146,14 +153,18 @@ func main() {
 			return nil, err
 		}
 
-		f, err := os.Create(name)
+		activeFile, err := os.Create(name)
 		if err != nil {
 			return nil, fmt.Errorf("creating new file %s: %v", name, err)
 		}
 
 		fileNum += 1
 
-		return f, nil
+		if *verbose {
+			fmt.Fprintf(os.Stderr, "opened new file for writing: %s\n", name)
+		}
+
+		return activeFile, nil
 	}
 
 	err := Split(os.Stdin, *numLineBytes, genNext)

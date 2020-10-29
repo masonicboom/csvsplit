@@ -55,6 +55,15 @@ func TestSplit(t *testing.T) {
 			},
 		},
 		{
+			"a,b,c\nd,e,f\ng,h,i",
+			6,
+			[]string{
+				"a,b,c\n",
+				"d,e,f\n",
+				"g,h,i\n",
+			},
+		},
+		{
 			"a,b,\"c\nasdfasdf\"\nd,e,f",
 			6,
 			[]string{
