@@ -70,7 +70,12 @@ func Split(in io.Reader, maxBytesPerFile int, genNextFile func() (io.Writer, err
 	currFileBytes := maxBytesPerFile // This forces a new file to be generated initially.
 
 	scanner := bufio.NewScanner(in)
+
 	scanner.Split(QuotedCSVLineSplit)
+
+	buf := make([]byte, 0, 64*1024)
+	scanner.Buffer(buf, 10*1024*1024)
+
 	for scanner.Scan() {
 		line := scanner.Text() + "\n"
 		numBytes := len(line) // TODO: confirm this counts bytes, not multi-byte runes.
