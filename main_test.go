@@ -22,19 +22,13 @@ func SplitToBuffers(in io.Reader, maxBytesPerFile int) ([]*bytes.Buffer, error) 
 }
 
 func TestSplit(t *testing.T) {
-	// Variables:
-	// single vs. multi line
-	// single vs. multi column
-	// quoted vs. unquoted
-	// first line vs. last line vs. middle vs. boundary
-	// greater than file size limit vs. less than
-
 	cases := []struct {
 		input           string
 		maxBytesPerFile int
 		expected        []string
 	}{
 		{
+			// Single row.
 			"a,b,c",
 			100,
 			[]string{
@@ -42,6 +36,7 @@ func TestSplit(t *testing.T) {
 			},
 		},
 		{
+			// Two rows, under split limit.
 			"a,b,c\nd,e,f",
 			100,
 			[]string{
@@ -49,6 +44,7 @@ func TestSplit(t *testing.T) {
 			},
 		},
 		{
+			// Two rows, above split limit.
 			"a,b,c\nd,e,f",
 			6,
 			[]string{
@@ -57,6 +53,7 @@ func TestSplit(t *testing.T) {
 			},
 		},
 		{
+			// 3 rows, above split limit.
 			"a,b,c\nd,e,f\ng,h,i",
 			6,
 			[]string{
@@ -66,6 +63,7 @@ func TestSplit(t *testing.T) {
 			},
 		},
 		{
+			// Quoted embedded newline, above split limit.
 			"a,b,\"c\nasdfasdf\"\nd,e,f",
 			6,
 			[]string{
@@ -106,6 +104,7 @@ func TestQuotedCSVLineSplit(t *testing.T) {
 		expected []string
 	}{
 		{
+			// Newline separating rows.
 			"a,b\nc,d",
 			[]string{
 				"a,b",
@@ -113,13 +112,14 @@ func TestQuotedCSVLineSplit(t *testing.T) {
 			},
 		},
 		{
-			"a,b\nc,\"d\ne\"",
+			// Newline embedded within quoted field (not a row separator).
+			"c,\"d\ne\"",
 			[]string{
-				"a,b",
 				"c,\"d\ne\"",
 			},
 		},
 		{
+			// Escaped quote within quoted field.
 			"a,b,\"c\"\"\"",
 			[]string{
 				"a,b,\"c\"\"\"",
