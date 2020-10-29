@@ -1,3 +1,5 @@
+// csvsplit splits a CSV from STDIN, never splitting a row across files.
+
 package main
 
 import (
@@ -15,6 +17,7 @@ const (
 	quote  = '"'
 )
 
+// QuotedCSVLineSplit is a SplitFunc for bufio.Scanner, which splits CSV rows.
 func QuotedCSVLineSplit(data []byte, atEOF bool) (advance int, token []byte, err error) {
 	if atEOF && len(data) == 0 {
 		return 0, nil, nil
@@ -78,6 +81,8 @@ func QuotedCSVLineSplit(data []byte, atEOF bool) (advance int, token []byte, err
 const initBufSizeBytes = 64 * 1024
 const maxBufSizeBytes = 10 * 1024 * 1024
 
+// Split splits a stream of CSV data every maxBytesPerFile.
+// It requests a new output target from genNextFile for each split.
 func Split(in io.Reader, maxBytesPerFile int, genNextFile func() (io.Writer, error)) error {
 	var w *bufio.Writer
 	currFileBytes := maxBytesPerFile // This forces a new file to be generated initially.
@@ -126,6 +131,7 @@ var additionalSuffix = flag.String("additional-suffix", "", "append an additiona
 var prefix = flag.String("prefix", "", "prefix for file names")
 var verbose = flag.Bool("verbose", false, "generate verbose output")
 
+// NextFileName generates the file name for the split file in position fileNum.
 func NextFileName(fileNum int) (string, error) {
 	num := fmt.Sprintf("%d", fileNum)
 	numPaddingChars := *suffixLength - len(num)

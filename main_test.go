@@ -8,6 +8,7 @@ import (
 	"testing"
 )
 
+// SplitToBuffers wraps Split to generate an array of strings rather than files.
 func SplitToBuffers(in io.Reader, maxBytesPerFile int) ([]*bytes.Buffer, error) {
 	files := []*bytes.Buffer{}
 
