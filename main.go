@@ -1,11 +1,13 @@
 package main
 
-import "fmt"
-import "io"
-import "strings"
-import "flag"
-import "bufio"
-import "os"
+import (
+	"bufio"
+	"flag"
+	"fmt"
+	"io"
+	"os"
+	"strings"
+)
 
 func QuotedCSVLineSplit(data []byte, atEOF bool) (advance int, token []byte, err error) {
 	if atEOF && len(data) == 0 {
@@ -106,16 +108,6 @@ func Split(in io.Reader, maxBytesPerFile int, genNextFile func() (io.Writer, err
 	return nil
 }
 
-/* example split command I'm using
-split \
-  --line-bytes=200000000 \
-  --numeric-suffixes=0 \
-  --additional-suffix=.csv \
-  --suffix-length=4 \
-  --verbose \
-  "${STAGING_DIR}/${TABLE}.csv" "${STAGING_DIR}/${TABLE}_chunk"
-*/
-
 var numLineBytes = flag.Int("line-bytes", -1, "put at most SIZE bytes of records per output file")
 var suffixLength = flag.Int("suffix-length", 2, "generate suffixes of length N")
 var numericSuffixes = flag.Int("numeric-suffixes", 0, "use numeric suffixes starting at X")
@@ -186,4 +178,3 @@ func main() {
 		}
 	}
 }
-

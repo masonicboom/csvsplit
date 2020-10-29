@@ -1,10 +1,12 @@
 package main
 
-import "testing"
-import "strings"
-import "bytes"
-import "io"
-import "bufio"
+import (
+	"bufio"
+	"bytes"
+	"io"
+	"strings"
+	"testing"
+)
 
 func SplitToBuffers(in io.Reader, maxBytesPerFile int) ([]*bytes.Buffer, error) {
 	files := []*bytes.Buffer{}
