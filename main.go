@@ -26,18 +26,19 @@ func QuotedCSVLineSplit(data []byte, atEOF bool) (advance int, token []byte, err
 	for i, b := range data {
 		switch state {
 		case Start:
-			if b == '"' {
+			switch b {
+			case '"':
 				state = QuotedField
-			} else if b == ',' {
+			case ',':
 				state = Start
-			} else {
+			default:
 				state = UnquotedField
 			}
 		case UnquotedField:
-			if b == '\n' {
+			switch b {
+			case '\n':
 				return i + 1, data[0:i], nil
-			}
-			if b == ',' {
+			case ',':
 				state = Start
 			}
 		case QuotedField:
@@ -45,15 +46,16 @@ func QuotedCSVLineSplit(data []byte, atEOF bool) (advance int, token []byte, err
 				state = Quote
 			}
 		case Quote:
-			if b == '"' {
+			switch b {
+			case '"':
 				// Just an escaped quote.
 				state = QuotedField
-			} else if b == ',' {
+			case ',':
 				// That was the end of the quoted field.
 				state = Start
-			} else if b == '\n' {
+			case '\n':
 				return i + 1, data[0:i], nil
-			} else {
+			default:
 				// Invalid.
 				return 0, nil, fmt.Errorf("invalid character following \" in quoted field: %s", string(b))
 			}
